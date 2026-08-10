@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  password     String
+  name         String?
+  plan         Plan        @default(FREE)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  workflows    Workflow[]
+  replayLogs   ReplayLog[]
+  analytics    Analytics?
+  refreshTokens RefreshToken[]
+}
+
+model Workflow {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  steps       Json
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replayLogs  ReplayLog[]
+  replayCount Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  lastRunAt   DateTime?
+  isActive    Boolean     @default(true)
+}
+
+model ReplayLog {
+  id         String    @id @default(cuid())
+  workflowId String
+  workflow   Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     Status    @default(PENDING)
+  stepsTotal Int
+  stepsDone  Int       @default(0)
+  error      String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+}
+
+model Analytics {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflowCount  Int      @default(0)
+  replayCount    Int      @default(0)
+  successCount   Int      @default(0)
+  failCount      Int      @default(0)
+  updatedAt      DateTime @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum Status {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}

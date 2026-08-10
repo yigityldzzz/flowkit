@@ -1,0 +1,14 @@
+{
+  "name": "flowkit",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:api": "cd apps/api && npm run dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "build:api": "cd apps/api && npm run build",
+    "build:web": "cd apps/web && npm run build",
+    "build:extension": "cd apps/extension && npm run build",
+    "build:all": "npm run build:api && npm run build:web && npm run build:extension"
+  }
+}
