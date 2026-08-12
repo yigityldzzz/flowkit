@@ -205,7 +205,7 @@ function Hero() {
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href="https://chrome.google.com/webstore"
+            href="https://chromewebstore.google.com/detail/flowkit-%E2%80%94-browser-automat/mljcchefmldgohhgpicakokbaphdjdee"
             className="flex items-center justify-center gap-2 px-8 py-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-violet-900/40 glow"
           >
             <Zap className="w-5 h-5" />
@@ -447,11 +447,11 @@ function CTA() {
             Ready to automate your workflow?
           </h2>
           <p className="relative text-zinc-400 mb-8 max-w-md mx-auto">
-            Join thousands of users saving hours every week with FlowKit. Start free, no card required.
+            Record once, replay forever. Start free — no credit card required.
           </p>
           <div className="relative flex flex-col sm:flex-row gap-3 justify-center">
             <a
-              href="https://chrome.google.com/webstore"
+              href="https://chromewebstore.google.com/detail/flowkit-%E2%80%94-browser-automat/mljcchefmldgohhgpicakokbaphdjdee"
               className="flex items-center justify-center gap-2 px-8 py-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-violet-900/40"
             >
               <Zap className="w-5 h-5" />
