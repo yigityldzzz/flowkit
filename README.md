@@ -1,125 +1,42 @@
-# FlowKit
+# FlowKit — Browser Automation Extension
 
-AI-powered browser workflow recorder and automation tool.
+FlowKit is a Chrome extension that lets anyone **record a browser workflow once and replay it automatically** — no coding required. Click through a process (filling forms, navigating pages, copying data between tabs) once, and FlowKit turns it into a repeatable, schedulable automation.
 
-## Stack
+🔗 [Chrome Web Store](https://chromewebstore.google.com/detail/flowkit-%E2%80%94-browser-automat/mljcchefmldgohhgpicakokbaphdjdee) · 🌐 [flowkit.digitaladexpert.de](https://flowkit.digitaladexpert.de)
 
-| Layer | Tech |
-|-------|------|
-| Backend | Node.js + Express + Prisma |
-| Database | PostgreSQL |
-| Frontend | Next.js 14 + TailwindCSS |
-| Extension | Chrome MV3 + React |
-| Deploy | PM2 + Nginx + SSL |
+## Features
 
-## Project Structure
+- **One-click recording** — capture clicks, form inputs, navigation, and scrolling as a reusable workflow
+- **Smart replay engine** — multiple fallback selectors per step so replays survive minor page changes
+- **Scheduled runs** — run workflows automatically on an hourly or daily schedule via the Chrome Alarms API
+- **Data tables with variables** — assign `{{variableName}}` placeholders to input steps and run the same workflow against a whole spreadsheet of data (e.g. send 50 personalized messages from one recording)
+- **Resilient recording** — steps persist to `chrome.storage.local` in real time, so a service worker restart or page navigation never loses progress
+- **Pattern detection** — flags repetitive manual actions and suggests turning them into an automation
+
+## Architecture
+
+This is a monorepo with three apps sharing a common data layer:
 
 ```
-flowkit/
-├── apps/
-│   ├── api/          # Express REST API
-│   ├── web/          # Next.js dashboard + landing
-│   └── extension/    # Chrome Extension MV3
-├── nginx/            # Nginx config
-├── scripts/          # Setup + deploy scripts
-└── .env.example
+apps/
+  extension/   Chrome MV3 extension (React + Vite) — recording, replay, popup UI
+  web/         Next.js dashboard (account, billing, workflow management)
+  api/         Express + Prisma REST API (auth, workflow sync, subscriptions)
+packages/
+  shared/      Shared TypeScript types between apps
 ```
 
-## Local Development
+**Stack:** TypeScript · React · Vite · Next.js · Express · Prisma · PostgreSQL · JWT auth
 
-### 1. Prerequisites
-- Node.js 20+
-- PostgreSQL running locally
+## Development
 
-### 2. Environment
 ```bash
-cp .env.example apps/api/.env
-cp .env.example apps/web/.env.local
-# Edit both files with your values
-```
-
-### 3. API
-```bash
-cd apps/api
 npm install
-npm run db:push      # Create DB tables
-npm run dev          # http://localhost:4000
+npm run dev:api          # API on :4000
+npm run dev:web          # Dashboard on :3000
+cd apps/extension && npm run dev   # Extension (load unpacked from apps/extension/dist)
 ```
 
-### 4. Web
-```bash
-cd apps/web
-npm install
-npm run dev          # http://localhost:3000
-```
+## License
 
-### 5. Extension
-```bash
-cd apps/extension
-npm install
-npm run build        # Outputs to apps/extension/dist/
-```
-Then load `apps/extension/dist/` as unpacked extension in `chrome://extensions`.
-
-## Production Deployment (VPS)
-
-### Step 1 — Server setup (run once)
-```bash
-ssh root@YOUR_VPS_IP
-bash setup.sh
-```
-
-### Step 2 — Configure environment
-```bash
-cp .env.example apps/api/.env
-# Edit with production DATABASE_URL, JWT secrets
-cp .env.example apps/web/.env.local
-# Set NEXT_PUBLIC_API_URL=https://flowkit.digitaladexpert.de
-```
-
-Generate secure JWT secrets:
-```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-```
-
-### Step 3 — Deploy
-```bash
-bash scripts/deploy.sh
-```
-
-### Step 4 — Cloudflare DNS
-Add an A record:
-```
-Type: A
-Name: flowkit
-Value: YOUR_VPS_IP
-Proxy: DNS only (grey cloud) during setup, then enable
-```
-
-## API Endpoints
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/auth/register | — | Register |
-| POST | /api/auth/login | — | Login |
-| POST | /api/auth/refresh | — | Refresh token |
-| GET | /api/auth/me | ✓ | Current user |
-| PATCH | /api/auth/me | ✓ | Update profile |
-| GET | /api/workflows | ✓ | List workflows |
-| POST | /api/workflows | ✓ | Create workflow |
-| PUT | /api/workflows/:id | ✓ | Update workflow |
-| DELETE | /api/workflows/:id | ✓ | Delete workflow |
-| POST | /api/replays/start | ✓ | Log replay start |
-| PATCH | /api/replays/:id/finish | ✓ | Log replay finish |
-| GET | /api/analytics | ✓ | User analytics |
-
-## Chrome Extension Messages
-
-| Message | Direction | Description |
-|---------|-----------|-------------|
-| START_RECORDING | popup→bg | Begin recording |
-| STOP_RECORDING | popup→bg | Stop, return steps |
-| SAVE_WORKFLOW | popup→bg | Save to storage + cloud |
-| REPLAY_WORKFLOW | popup→bg | Replay on current tab |
-| REPLAY_STEP | bg→content | Execute single step |
-| AUTH_SET/GET/CLEAR | popup→bg | Auth token management |
+Proprietary — © Digital Ad Expert
