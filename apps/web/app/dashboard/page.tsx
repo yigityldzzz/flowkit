@@ -169,7 +169,7 @@ export default function DashboardPage() {
                     Install the Chrome Extension and start recording your first workflow.
                   </p>
                   <a
-                    href="https://chrome.google.com/webstore"
+                    href="https://chromewebstore.google.com/detail/flowkit-%E2%80%94-browser-automat/mljcchefmldgohhgpicakokbaphdjdee"
                     className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     <Zap className="w-4 h-4" />
