@@ -13,6 +13,16 @@ interface RecordedStep {
   timestamp: number;
 }
 
+// Guard against double-injection: background.ts programmatically re-injects
+// this script as a safety net for tabs that were open before the extension
+// loaded (manifest content_scripts only auto-inject on new page loads).
+// Without this guard, a page could end up with two copies of this script,
+// causing duplicate event listeners and steps recorded twice per action.
+if ((window as any).__flowkitContentLoaded) {
+  // Already loaded in this page — do nothing.
+} else {
+(window as any).__flowkitContentLoaded = true;
+
 let recording = false;
 let steps: RecordedStep[] = [];
 let lastTimestamp = 0;
@@ -246,3 +256,5 @@ observer.observe(document.body, { childList: true, subtree: true });
 // Background uses this to re-activate recording after navigation
 // (replaces chrome.tabs.onUpdated which requires the broad 'tabs' permission).
 chrome.runtime.sendMessage({ type: 'PAGE_LOADED' }).catch(() => {});
+
+} // end __flowkitContentLoaded guard

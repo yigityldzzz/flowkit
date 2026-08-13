@@ -66,9 +66,22 @@ async function appendPersistedStep(step: WorkflowStep): Promise<void> {
 }
 
 // ── Recording functions ───────────────────────────────────────────────────────
+// Content scripts declared in manifest.json only auto-inject into NEW page loads.
+// A tab that was already open before the extension was installed/reloaded has
+// no content script running, so sendMessage would silently fail. Injecting it
+// programmatically here guarantees it's present before we message it.
+async function ensureContentScript(tabId: number): Promise<void> {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+  } catch {
+    // Fails on restricted pages (chrome://, Web Store, etc.) — nothing we can do there.
+  }
+}
+
 async function startRecording(tabId: number) {
   await setActiveTabId(tabId);
   await storage.setRecordingState({ active: true, steps: [] });
+  await ensureContentScript(tabId);
   await chrome.tabs.sendMessage(tabId, { type: 'START_RECORDING' }).catch(() => {});
   chrome.action.setBadgeText({ text: 'REC', tabId });
   chrome.action.setBadgeBackgroundColor({ color: '#ef4444', tabId });
@@ -76,6 +89,7 @@ async function startRecording(tabId: number) {
 
 // Re-activate on new page without clearing accumulated steps
 async function reactivateRecording(tabId: number) {
+  await ensureContentScript(tabId);
   await chrome.tabs.sendMessage(tabId, { type: 'START_RECORDING' }).catch(() => {});
   chrome.action.setBadgeText({ text: 'REC', tabId });
   chrome.action.setBadgeBackgroundColor({ color: '#ef4444', tabId });

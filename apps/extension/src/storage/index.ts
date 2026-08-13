@@ -1,5 +1,5 @@
 export interface WorkflowStep {
-  type: click | input | navigate | wait | scroll | select;
+  type: 'click' | 'input' | 'navigate' | 'wait' | 'scroll' | 'select';
   selector?: string;
   selectorAlternatives?: string[];
   value?: string;
@@ -13,7 +13,7 @@ export interface WorkflowStep {
 
 export interface WorkflowSchedule {
   enabled: boolean;
-  type: hourly | daily;
+  type: 'hourly' | 'daily';
   hour?: number;
   minute?: number;
 }
@@ -38,10 +38,10 @@ export interface AuthState {
 }
 
 const KEYS = {
-  WORKFLOWS: fk_workflows,
-  AUTH: fk_auth,
-  RECORDING_STATE: fk_recording,
-  SETTINGS: fk_settings,
+  WORKFLOWS: 'fk_workflows',
+  AUTH: 'fk_auth',
+  RECORDING_STATE: 'fk_recording',
+  SETTINGS: 'fk_settings',
 };
 
 export const storage = {
