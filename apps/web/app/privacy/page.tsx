@@ -132,6 +132,12 @@ export default function PrivacyPage() {
                 flowkit.digitaladexpert.de
               </a>
             </p>
+            <p className="mt-3 text-xs text-zinc-500">
+              FlowKit is operated by Digital Ad Expert / Yiğit Yıldız, a sole proprietor registered with
+              the Albanian National Business Center (Qendra Kombëtare e Biznesit), business registration
+              number (NUIS) M61404014A. Registered address: Rruga Astrit Losha, Pallati Marituda, Tiranë,
+              Albania.
+            </p>
           </section>
 
         </div>

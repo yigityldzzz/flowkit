@@ -5,7 +5,6 @@ import {
   Zap, Play, Trash2, Plus, BarChart3, Clock, CheckCircle2,
   XCircle, LogOut, Settings, ChevronRight, Loader2, RefreshCw
 } from 'lucide-react';
-import Link from 'next/link';
 import { auth, workflows as wfApi, analytics as analyticsApi, clearTokens } from '@/lib/api';
 
 type User = { id: string; email: string; name?: string; plan: string };
@@ -144,12 +143,12 @@ export default function DashboardPage() {
                     <RefreshCw className="w-4 h-4" />
                   </button>
                   {user?.plan === 'FREE' && wfs.length >= 3 ? (
-                    <Link
-                      href="/register?plan=pro"
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
+                    <span
+                      title="Pro plan pricing will be announced at launch"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-zinc-500 text-sm font-medium cursor-default select-none"
                     >
-                      Upgrade to Pro
-                    </Link>
+                      Pro — Coming Soon
+                    </span>
                   ) : (
                     <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-zinc-700 text-zinc-500 text-sm">
                       <Plus className="w-4 h-4" />
@@ -360,12 +359,12 @@ function SettingsTab({ user, onUpdate }: { user: User | null; onUpdate: (u: User
           </span>
         </div>
         {user?.plan === 'FREE' && (
-          <Link
-            href="/register?plan=pro"
-            className="flex items-center justify-center gap-2 mt-4 w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
+          <div
+            title="Pro plan pricing will be announced at launch"
+            className="flex items-center justify-center gap-2 mt-4 w-full py-2.5 bg-zinc-800/60 border border-zinc-700/50 text-zinc-500 text-sm font-medium rounded-lg cursor-default select-none"
           >
-            Upgrade to Pro
-          </Link>
+            Pro — Coming Soon
+          </div>
         )}
       </div>
     </div>
