@@ -2,11 +2,18 @@ import { Router, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../config/database';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { CATEGORIES } from './templates';
 
 const router = Router();
 router.use(authenticate);
 
 const FREE_LIMIT = 3;
+
+const publishSchema = z.object({
+  title: z.string().min(1).max(100),
+  description: z.string().min(1).max(500),
+  category: z.enum(CATEGORIES),
+});
 
 const stepSchema = z.object({
   type: z.enum(['click', 'input', 'navigate', 'wait', 'scroll', 'select']),
@@ -108,6 +115,33 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     data: { ...parsed.data, updatedAt: new Date() },
   });
   res.json(updated);
+});
+
+// POST /api/workflows/:id/publish — publish a snapshot of this workflow as a public template
+router.post('/:id/publish', async (req: AuthRequest, res: Response) => {
+  const parsed = publishSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() });
+    return;
+  }
+  const workflow = await prisma.workflow.findFirst({
+    where: { id: req.params.id, userId: req.user!.id, isActive: true },
+  });
+  if (!workflow) {
+    res.status(404).json({ error: 'Workflow not found' });
+    return;
+  }
+  const template = await prisma.template.create({
+    data: {
+      title: parsed.data.title,
+      description: parsed.data.description,
+      category: parsed.data.category,
+      steps: workflow.steps as any,
+      authorId: req.user!.id,
+      sourceWorkflowId: workflow.id,
+    },
+  });
+  res.status(201).json(template);
 });
 
 // DELETE /api/workflows/:id

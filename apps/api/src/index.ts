@@ -8,6 +8,7 @@ import authRoutes from './routes/auth';
 import workflowRoutes from './routes/workflows';
 import replayRoutes from './routes/replays';
 import analyticsRoutes from './routes/analytics';
+import templateRoutes from './routes/templates';
 import { errorHandler } from './middleware/errorHandler';
 import { prisma } from './config/database';
 
@@ -52,6 +53,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/workflows', workflowRoutes);
 app.use('/api/replays', replayRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/templates', templateRoutes);
 
 // ── Admin endpoint (secret token guard) ───────────────────────────────────────
 app.get('/api/admin/users', async (req, res) => {

@@ -77,11 +77,31 @@ export const workflows = {
   create: (data: any) => request<any>('/api/workflows', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: any) => request<any>(`/api/workflows/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => request<any>(`/api/workflows/${id}`, { method: 'DELETE' }),
+  publish: (id: string, data: { title: string; description: string; category: string }) =>
+    request<any>(`/api/workflows/${id}/publish`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 // Analytics
 export const analytics = {
   get: () => request<any>('/api/analytics'),
+};
+
+// Templates (public gallery)
+export const templates = {
+  list: (params?: { category?: string; search?: string; page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.category) qs.set('category', params.category);
+    if (params?.search) qs.set('search', params.search);
+    if (params?.page) qs.set('page', String(params.page));
+    const q = qs.toString();
+    return request<{ templates: any[]; total: number; page: number; totalPages: number }>(
+      `/api/templates${q ? `?${q}` : ''}`
+    );
+  },
+  categories: () => request<string[]>('/api/templates/categories'),
+  get: (id: string) => request<any>(`/api/templates/${id}`),
+  clone: (id: string) => request<any>(`/api/templates/${id}/clone`, { method: 'POST' }),
+  unpublish: (id: string) => request<any>(`/api/templates/${id}`, { method: 'DELETE' }),
 };
 
 // Replays

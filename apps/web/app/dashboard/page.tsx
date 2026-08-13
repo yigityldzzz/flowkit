@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Zap, Play, Trash2, Plus, BarChart3, Clock, CheckCircle2,
-  XCircle, LogOut, Settings, ChevronRight, Loader2, RefreshCw
+  XCircle, LogOut, Settings, ChevronRight, Loader2, RefreshCw, Share2, X
 } from 'lucide-react';
-import { auth, workflows as wfApi, analytics as analyticsApi, clearTokens } from '@/lib/api';
+import { auth, workflows as wfApi, analytics as analyticsApi, templates as templatesApi, clearTokens } from '@/lib/api';
 
 type User = { id: string; email: string; name?: string; plan: string };
 type Workflow = {
@@ -27,6 +28,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'workflows' | 'analytics' | 'settings'>('workflows');
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [publishTarget, setPublishTarget] = useState<Workflow | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('fk_access_token');
@@ -102,6 +104,14 @@ export default function DashboardPage() {
             {item.label}
           </button>
         ))}
+
+        <Link
+          href="/templates"
+          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors text-left text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
+        >
+          <Share2 className="w-4 h-4" />
+          Template Gallery
+        </Link>
 
         <div className="flex-1" />
 
@@ -191,6 +201,13 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
+                          onClick={() => setPublishTarget(wf)}
+                          title="Publish as a public template"
+                          className="p-1.5 rounded-lg text-zinc-600 hover:text-violet-400 hover:bg-violet-500/10 transition-colors"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => deleteWorkflow(wf.id)}
                           disabled={deleting === wf.id}
                           className="p-1.5 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
@@ -263,6 +280,149 @@ export default function DashboardPage() {
           )}
         </div>
       </main>
+
+      {publishTarget && (
+        <PublishModal
+          workflow={publishTarget}
+          onClose={() => setPublishTarget(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PublishModal({ workflow, onClose }: { workflow: Workflow; onClose: () => void }) {
+  const [categories, setCategories] = useState<string[]>([]);
+  const [form, setForm] = useState({
+    title: workflow.name,
+    description: workflow.description || '',
+    category: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [published, setPublished] = useState<any>(null);
+
+  useEffect(() => {
+    templatesApi.categories().then((cats) => {
+      setCategories(cats);
+      setForm((f) => (f.category ? f : { ...f, category: cats[0] || '' }));
+    }).catch(() => setError('Could not load categories. Please try again.'));
+  }, []);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    if (!form.title.trim() || !form.description.trim() || !form.category) {
+      setError('Please fill in all fields.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await wfApi.publish(workflow.id, form);
+      setPublished(result);
+    } catch (e: any) {
+      setError(e.message || 'Failed to publish template.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="glass rounded-2xl p-6 w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {published ? (
+          <div className="text-center py-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+            </div>
+            <h3 className="font-semibold text-zinc-100 mb-2">Published!</h3>
+            <p className="text-sm text-zinc-500 mb-6">
+              Your workflow is now live in the public Template Gallery for anyone to discover and use.
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Link
+                href={`/templates/${published.id}`}
+                className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                View in Gallery
+              </Link>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-zinc-700 text-zinc-300 text-sm font-medium rounded-lg hover:bg-white/5 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={submit}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-zinc-100">Publish as Template</h3>
+              <button type="button" onClick={onClose} className="text-zinc-500 hover:text-zinc-300 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500 mb-5">
+              This creates a public, reusable copy of "{workflow.name}" in the Template Gallery. Your original
+              workflow is not affected, and you can unpublish it later.
+            </p>
+
+            {error && (
+              <div className="mb-4 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  maxLength={100}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-violet-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="What does this workflow do, and who is it useful for?"
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-violet-500 transition-colors resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">Category</label>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-violet-500 transition-colors"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex items-center justify-center gap-2 w-full mt-6 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Publish
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }
