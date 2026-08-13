@@ -415,8 +415,8 @@ function WorkflowDetailScreen({ workflow, onBack, onUpdate }: { workflow: Workfl
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 14px' }}>
         <button style={tabStyle('steps')} onClick={() => setActiveTab('steps')}>Steps</button>
-        <button style={tabStyle('schedule')} onClick={() => setActiveTab('schedule')}>Zamanlama</button>
-        <button style={tabStyle('data')} onClick={() => setActiveTab('data')}>Veri ile Çalıştır</button>
+        <button style={tabStyle('schedule')} onClick={() => setActiveTab('schedule')}>Schedule</button>
+        <button style={tabStyle('data')} onClick={() => setActiveTab('data')}>Run with Data</button>
       </div>
 
       {/* Tab Content */}
@@ -477,7 +477,7 @@ function WorkflowDetailScreen({ workflow, onBack, onUpdate }: { workflow: Workfl
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* Enable toggle */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, color: '#e4e4e7' }}>Zamanlamayı Aktif Et</span>
+              <span style={{ fontSize: 13, color: '#e4e4e7' }}>Enable Schedule</span>
               <div
                 onClick={() => setSchedule((s) => ({ ...s, enabled: !s.enabled }))}
                 style={{ width: 40, height: 22, borderRadius: 11, background: schedule.enabled ? '#7c3aed' : '#27272a', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}
@@ -494,20 +494,20 @@ function WorkflowDetailScreen({ workflow, onBack, onUpdate }: { workflow: Workfl
                     onClick={() => setSchedule((s) => ({ ...s, type: 'hourly' }))}
                     style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid ${schedule.type === 'hourly' ? '#7c3aed' : 'rgba(255,255,255,0.06)'}`, background: schedule.type === 'hourly' ? 'rgba(124,58,237,0.15)' : 'transparent', color: schedule.type === 'hourly' ? '#a78bfa' : '#71717a', fontSize: 12, cursor: 'pointer' }}
                   >
-                    Saatlik
+                    Hourly
                   </button>
                   <button
                     onClick={() => setSchedule((s) => ({ ...s, type: 'daily' }))}
                     style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid ${schedule.type === 'daily' ? '#7c3aed' : 'rgba(255,255,255,0.06)'}`, background: schedule.type === 'daily' ? 'rgba(124,58,237,0.15)' : 'transparent', color: schedule.type === 'daily' ? '#a78bfa' : '#71717a', fontSize: 12, cursor: 'pointer' }}
                   >
-                    Günlük
+                    Daily
                   </button>
                 </div>
 
                 {/* Daily time inputs */}
                 {schedule.type === 'daily' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#71717a' }}>Saat:</span>
+                    <span style={{ fontSize: 12, color: '#71717a' }}>Time:</span>
                     <input
                       type="number"
                       min={0}
@@ -534,7 +534,7 @@ function WorkflowDetailScreen({ workflow, onBack, onUpdate }: { workflow: Workfl
               onClick={saveSchedule}
               style={{ padding: '10px', borderRadius: 10, background: '#7c3aed', border: 'none', cursor: 'pointer', color: '#fff', fontWeight: 600, fontSize: 13 }}
             >
-              Kaydet
+              Save
             </button>
           </div>
         )}
@@ -544,7 +544,7 @@ function WorkflowDetailScreen({ workflow, onBack, onUpdate }: { workflow: Workfl
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {varNames.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#52525b', fontSize: 12 }}>
-                Önce Steps sekmesinden adımları dinamik yapın
+                First make steps dynamic from the Steps tab
               </div>
             ) : (
               <>
@@ -582,7 +582,7 @@ function WorkflowDetailScreen({ workflow, onBack, onUpdate }: { workflow: Workfl
                   onClick={addDataRow}
                   style={{ padding: '8px', borderRadius: 8, background: 'transparent', border: '1px dashed rgba(255,255,255,0.12)', cursor: 'pointer', color: '#71717a', fontSize: 12 }}
                 >
-                  + Satır ekle
+                  + Add row
                 </button>
 
                 {dataSets.length > 0 && (
@@ -591,7 +591,7 @@ function WorkflowDetailScreen({ workflow, onBack, onUpdate }: { workflow: Workfl
                     disabled={!!runProgress && !runDone}
                     style={{ padding: '10px', borderRadius: 10, background: runDone ? 'rgba(34,197,94,0.15)' : '#7c3aed', border: runDone ? '1px solid rgba(34,197,94,0.3)' : 'none', cursor: runProgress && !runDone ? 'not-allowed' : 'pointer', color: runDone ? '#4ade80' : '#fff', fontWeight: 600, fontSize: 13 }}
                   >
-                    {runDone ? `✓ ${runProgress}` : runProgress || `Tümünü Çalıştır (${dataSets.length} satır)`}
+                    {runDone ? `✓ ${runProgress}` : runProgress || `Run All (${dataSets.length} row${dataSets.length !== 1 ? 's' : ''})`}
                   </button>
                 )}
               </>
