@@ -1,10 +1,22 @@
 {
   "manifest_version": 3,
   "name": "FlowKit — Browser Automation",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "Record browser workflows and replay them automatically.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js",

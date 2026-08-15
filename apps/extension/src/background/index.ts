@@ -59,10 +59,24 @@ async function getPersistedSteps(): Promise<WorkflowStep[]> {
   return state?.steps ?? [];
 }
 
-async function appendPersistedStep(step: WorkflowStep): Promise<void> {
-  const steps = await getPersistedSteps();
-  steps.push(step);
-  await storage.setRecordingState({ active: true, steps });
+// appendPersistedStep does a read-modify-write against chrome.storage.local,
+// which is NOT atomic. Two STEP_RECORDED messages arriving close together
+// (completely normal — a couple of quick clicks land well within a single
+// storage round-trip) would both read the same starting array, then each
+// write back their own version, with the second write silently clobbering
+// the first. Confirmed empirically: 5 clicks fired ~0ms apart converged to
+// as little as 1 surviving step. Queueing every append onto a single promise
+// chain forces them to run strictly one-at-a-time, so each one reads only
+// after the previous one's write has actually landed.
+let appendQueue: Promise<void> = Promise.resolve();
+
+function appendPersistedStep(step: WorkflowStep): Promise<void> {
+  appendQueue = appendQueue.then(async () => {
+    const steps = await getPersistedSteps();
+    steps.push(step);
+    await storage.setRecordingState({ active: true, steps });
+  });
+  return appendQueue;
 }
 
 // ── Recording functions ───────────────────────────────────────────────────────
@@ -79,6 +93,7 @@ async function ensureContentScript(tabId: number): Promise<void> {
 }
 
 async function startRecording(tabId: number) {
+  appendQueue = Promise.resolve(); // fresh session — drop any stale queued writes from before
   await setActiveTabId(tabId);
   await storage.setRecordingState({ active: true, steps: [] });
   await ensureContentScript(tabId);
@@ -95,7 +110,21 @@ async function reactivateRecording(tabId: number) {
   chrome.action.setBadgeBackgroundColor({ color: '#ef4444', tabId });
 }
 
-async function stopRecording(tabId: number): Promise<WorkflowStep[]> {
+async function stopRecording(requestedTabId: number): Promise<WorkflowStep[]> {
+  // Prefer the tab we actually started recording on (stored when
+  // START_RECORDING ran) over whatever tab the popup thinks is "active" right
+  // now. The popup re-derives its tabId via a fresh chrome.tabs.query() every
+  // time it opens — if that ever disagrees with the tab recording actually
+  // started on (extra tabs/windows, focus changes while the popup was
+  // closed), sending STOP_RECORDING to the wrong tab returns 0 page steps
+  // even though the real content script still has them all in memory.
+  const activeTabId = await getActiveTabId();
+  const tabId = activeTabId ?? requestedTabId;
+
+  // Ensure appendQueue's writes (from the queued fix above) have all landed
+  // before we read persisted steps back out.
+  await appendQueue;
+
   // Get steps from current page content script
   const result = await chrome.tabs.sendMessage(tabId, { type: 'STOP_RECORDING' }).catch(() => null);
   const pageSteps: WorkflowStep[] = result?.steps ?? [];
