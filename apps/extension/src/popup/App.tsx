@@ -99,7 +99,16 @@ export default function App() {
     setStepCount(0);
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (!tab?.id) return;
-    await bgMsg({ type: 'START_RECORDING', tabId: tab.id });
+    const result = await bgMsg({ type: 'START_RECORDING', tabId: tab.id });
+    if (!result?.ok) {
+      // Recording genuinely never started (e.g. a chrome://, Web Store, or
+      // PDF page — Chrome blocks extensions there, no workaround exists).
+      // Surfacing this here matters: without it, the popup would show
+      // "Recording..." anyway and the user would end up with a real,
+      // unexplained 0-step result with no idea why.
+      alert(result?.error || "Couldn't start recording on this page.");
+      return;
+    }
     setScreen('recording');
     window.close(); // Close popup so user can interact with page
   }

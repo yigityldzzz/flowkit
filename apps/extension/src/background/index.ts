@@ -84,22 +84,55 @@ function appendPersistedStep(step: WorkflowStep): Promise<void> {
 // A tab that was already open before the extension was installed/reloaded has
 // no content script running, so sendMessage would silently fail. Injecting it
 // programmatically here guarantees it's present before we message it.
-async function ensureContentScript(tabId: number): Promise<void> {
+async function ensureContentScript(tabId: number): Promise<boolean> {
   try {
     await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+    return true;
   } catch {
-    // Fails on restricted pages (chrome://, Web Store, etc.) — nothing we can do there.
+    // Fails on restricted pages (chrome://, the Chrome Web Store itself, PDF
+    // viewer, etc.) — Chrome blocks content-script injection there entirely,
+    // no workaround exists. The caller MUST surface this rather than silently
+    // pretend recording started: this exact silent-failure combo (badge shows
+    // "REC", popup shows "Recording...", content script never actually
+    // received START_RECORDING) is what previously made an entire recording
+    // session end in a real, unexplained "0 steps captured" — the user had
+    // no way to know why, especially if they started recording from the
+    // Web Store listing page itself right after installing.
+    return false;
   }
 }
 
-async function startRecording(tabId: number) {
+async function startRecording(tabId: number): Promise<{ ok: boolean; error?: string }> {
   appendQueue = Promise.resolve(); // fresh session — drop any stale queued writes from before
   await setActiveTabId(tabId);
   await storage.setRecordingState({ active: true, steps: [] });
-  await ensureContentScript(tabId);
+
+  const injected = await ensureContentScript(tabId);
+  if (!injected) {
+    await setActiveTabId(null);
+    await storage.setRecordingState(null);
+    return {
+      ok: false,
+      error: "Can't record on this page — Chrome blocks extensions here (chrome:// pages, the Web Store, PDF viewer, etc.). Open a normal website first.",
+    };
+  }
+
+  // executeScript succeeding doesn't guarantee the listener is live yet on
+  // every page type — confirm with a real round-trip before declaring success.
+  const pingOk = await chrome.tabs.sendMessage(tabId, { type: 'PING' }).then(() => true).catch(() => false);
+  if (!pingOk) {
+    await setActiveTabId(null);
+    await storage.setRecordingState(null);
+    return {
+      ok: false,
+      error: "Couldn't connect to the page. Try reloading the page and starting again.",
+    };
+  }
+
   await chrome.tabs.sendMessage(tabId, { type: 'START_RECORDING' }).catch(() => {});
   chrome.action.setBadgeText({ text: 'REC', tabId });
   chrome.action.setBadgeBackgroundColor({ color: '#ef4444', tabId });
+  return { ok: true };
 }
 
 // Re-activate on new page without clearing accumulated steps
@@ -267,7 +300,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.type === 'START_RECORDING') {
     if (tabId) {
-      startRecording(tabId).then(() => sendResponse({ ok: true }));
+      startRecording(tabId).then((result) => sendResponse(result));
+    } else {
+      sendResponse({ ok: false, error: 'No active tab found.' });
     }
     return true;
   }
