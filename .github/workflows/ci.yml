@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  extension:
+    name: Extension (build + typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        working-directory: apps/extension
+        run: npx tsc --noEmit -p .
+      - name: Build
+        working-directory: apps/extension
+        run: npm run build
+      - name: Manifest sanity check
+        working-directory: apps/extension
+        run: |
+          node -e "
+            const m = require('./dist/manifest.json');
+            if (!m.icons || !m.icons['128']) { console.error('manifest.json is missing icons — this exact bug shipped once already'); process.exit(1); }
+            if (!m.action || !m.action.default_icon) { console.error('manifest.json action.default_icon missing'); process.exit(1); }
+            console.log('manifest.json OK — version', m.version);
+          "
+
+  api:
+    name: API (typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Prisma generate
+        working-directory: apps/api
+        run: npx prisma generate
+        continue-on-error: true
+      - name: Typecheck
+        working-directory: apps/api
+        run: npx tsc --noEmit
+
+  web:
+    name: Web (typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        working-directory: apps/web
+        run: npx tsc --noEmit
