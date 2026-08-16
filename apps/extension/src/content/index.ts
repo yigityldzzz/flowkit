@@ -27,39 +27,95 @@ let recording = false;
 let steps: RecordedStep[] = [];
 let lastTimestamp = 0;
 
-// Generate multiple selectors for an element (robustness)
-function getSelectors(el: Element): string[] {
-  const selectors: string[] = [];
+// A selector is only trustworthy for replay if it resolves to exactly the
+// one element we generated it from — not zero (typo/escaping issue) and not
+// more than one (the classic failure mode: a "unique class combination" that
+// was never actually checked for uniqueness, e.g. shared Tailwind utility
+// classes like ".max-w-7xl.mx-auto.px-4" that appear on dozens of unrelated
+// wrapper divs across a page).
+function isUniqueSelector(sel: string, target: Element): boolean {
+  try {
+    const matches = document.querySelectorAll(sel);
+    return matches.length === 1 && matches[0] === target;
+  } catch {
+    return false;
+  }
+}
+
+const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, label, [role="button"], [role="link"], [tabindex], [onclick]';
+
+// Clicks often land on an inner <span>/<div>/<svg> inside the actual
+// clickable control (icon-inside-a-button is extremely common). Recording a
+// selector for that inner wrapper produces exactly the kind of
+// low-specificity, non-unique selector that broke replay here — walk up to
+// the nearest real interactive ancestor first, same idea replayStep() already
+// uses on the playback side for the inverse problem (SVG targets with no
+// .click()).
+function resolveInteractiveTarget(el: Element): Element {
+  if (el.matches(INTERACTIVE_SELECTOR)) return el;
+  const ancestor = el.closest(INTERACTIVE_SELECTOR);
+  return ancestor ?? el;
+}
+
+// Generate multiple selectors for an element, ranked by how much we can
+// trust them: every candidate is checked for uniqueness before being
+// considered "good" — a selector that matches 0 or >1 elements only survives
+// as a last-resort fallback, never as the primary `selector` a replay
+// actually depends on.
+function getSelectors(rawEl: Element): string[] {
+  const el = resolveInteractiveTarget(rawEl);
+  const good: string[] = [];
+  const weak: string[] = [];
+  const add = (sel: string | null) => {
+    if (!sel) return;
+    (isUniqueSelector(sel, el) ? good : weak).push(sel);
+  };
 
   // 1. id
-  if (el.id) selectors.push(`#${CSS.escape(el.id)}`);
+  if (el.id) add(`#${CSS.escape(el.id)}`);
 
   // 2. data-testid / aria attributes
   for (const attr of ['data-testid', 'data-cy', 'aria-label', 'name']) {
     const val = el.getAttribute(attr);
-    if (val) selectors.push(`[${attr}="${CSS.escape(val)}"]`);
+    if (val) add(`[${attr}="${CSS.escape(val)}"]`);
   }
 
-  // 3. Unique class combination
+  // 3. Class combination (only trusted if actually unique on this page)
   if (el.className && typeof el.className === 'string') {
     const cls = el.className.trim().split(/\s+/).filter(Boolean).slice(0, 3);
-    if (cls.length) selectors.push(`.${cls.map((c) => CSS.escape(c)).join('.')}`);
+    if (cls.length) add(`.${cls.map((c) => CSS.escape(c)).join('.')}`);
   }
 
   // 4. Tag + type
   const tag = el.tagName.toLowerCase();
   const type = el.getAttribute('type');
-  if (type) selectors.push(`${tag}[type="${type}"]`);
+  if (type) add(`${tag}[type="${type}"]`);
 
-  // 5. nth-of-type fallback
+  // 5. nth-of-type — a full ancestor-anchored path, so it's unique even when
+  // the bare tag:nth-of-type(n) on its own wouldn't be.
+  const path: string[] = [];
+  let cur: Element | null = el;
+  for (let depth = 0; cur && depth < 4; depth++) {
+    const parent: Element | null = cur.parentElement;
+    if (!parent) break;
+    const siblings = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
+    const idx = siblings.indexOf(cur) + 1;
+    path.unshift(`${cur.tagName.toLowerCase()}:nth-of-type(${idx})`);
+    cur = parent;
+  }
+  if (path.length) add(path.join(' > '));
+  // Also keep the old single-level version as a weak fallback for older
+  // saved workflows / simpler pages where it happens to already be unique.
   const parent = el.parentElement;
   if (parent) {
     const siblings = Array.from(parent.children).filter((c) => c.tagName === el.tagName);
     const idx = siblings.indexOf(el) + 1;
-    selectors.push(`${tag}:nth-of-type(${idx})`);
+    add(`${tag}:nth-of-type(${idx})`);
   }
 
-  return [...new Set(selectors)];
+  // Unique candidates first (these are the ones worth using as the primary
+  // `selector`), then everything else as a last-resort fallback chain.
+  return [...new Set([...good, ...weak])];
 }
 
 function describeElement(el: Element): string {
@@ -82,9 +138,13 @@ function recordStep(step: RecordedStep) {
 // Click handler
 function onClickCapture(e: MouseEvent) {
   if (!recording) return;
-  const el = e.target as Element;
-  if (!el || el.tagName === 'HTML' || el.tagName === 'BODY') return;
+  const rawEl = e.target as Element;
+  if (!rawEl || rawEl.tagName === 'HTML' || rawEl.tagName === 'BODY') return;
 
+  // Resolve once so the recorded description matches what getSelectors()
+  // actually targets — e.g. clicking an icon <svg> inside a <button>
+  // describes and selects the button, not the inner icon.
+  const el = resolveInteractiveTarget(rawEl);
   const selectors = getSelectors(el);
   recordStep({
     type: 'click',
