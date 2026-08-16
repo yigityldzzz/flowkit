@@ -26,6 +26,9 @@ jobs:
       - name: Selector generation tests
         working-directory: apps/extension
         run: npm run test
+      - name: Window vs document capture-order test
+        working-directory: apps/extension
+        run: node test_window_capture.js
       - name: Manifest sanity check
         working-directory: apps/extension
         run: |

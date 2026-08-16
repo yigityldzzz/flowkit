@@ -138,21 +138,31 @@ function recordStep(step: RecordedStep) {
 // Click handler
 function onClickCapture(e: MouseEvent) {
   if (!recording) return;
-  const rawEl = e.target as Element;
-  if (!rawEl || rawEl.tagName === 'HTML' || rawEl.tagName === 'BODY') return;
+  try {
+    const rawEl = e.target as Element;
+    if (!rawEl || rawEl.tagName === 'HTML' || rawEl.tagName === 'BODY') return;
 
-  // Resolve once so the recorded description matches what getSelectors()
-  // actually targets — e.g. clicking an icon <svg> inside a <button>
-  // describes and selects the button, not the inner icon.
-  const el = resolveInteractiveTarget(rawEl);
-  const selectors = getSelectors(el);
-  recordStep({
-    type: 'click',
-    selector: selectors[0],
-    selectorAlternatives: selectors.slice(1),
-    description: `Click ${describeElement(el)}`,
-    timestamp: Date.now(),
-  });
+    // Resolve once so the recorded description matches what getSelectors()
+    // actually targets — e.g. clicking an icon <svg> inside a <button>
+    // describes and selects the button, not the inner icon.
+    const el = resolveInteractiveTarget(rawEl);
+    const selectors = getSelectors(el);
+    recordStep({
+      type: 'click',
+      selector: selectors[0],
+      selectorAlternatives: selectors.slice(1),
+      description: `Click ${describeElement(el)}`,
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    // A single unusual element (odd SVG/shadow-DOM/custom-element structure
+    // on a particular site) must never silently swallow the whole click with
+    // no trace — log it so "0 steps on this one site" is debuggable instead
+    // of a mystery, and still record a bare-minimum step so the user sees
+    // *something* rather than the click vanishing entirely.
+    console.error('[FlowKit] click capture failed, recording minimal fallback step', err);
+    recordStep({ type: 'click', description: 'Click (selector generation failed)', timestamp: Date.now() });
+  }
 }
 
 // Input handler (debounced)
@@ -166,18 +176,22 @@ function onInputCapture(e: Event) {
   if (existing) clearTimeout(existing);
 
   inputDebounce.set(el, setTimeout(() => {
-    const selectors = getSelectors(el);
-    // Never record password field values
-    const inputType = el.getAttribute('type')?.toLowerCase();
-    const value = inputType === 'password' ? '***' : el.value;
-    recordStep({
-      type: 'input',
-      selector: selectors[0],
-      selectorAlternatives: selectors.slice(1),
-      value,
-      description: `Type "${value.slice(0, 30)}" into ${describeElement(el)}`,
-      timestamp: Date.now(),
-    });
+    try {
+      const selectors = getSelectors(el);
+      // Never record password field values
+      const inputType = el.getAttribute('type')?.toLowerCase();
+      const value = inputType === 'password' ? '***' : el.value;
+      recordStep({
+        type: 'input',
+        selector: selectors[0],
+        selectorAlternatives: selectors.slice(1),
+        value,
+        description: `Type "${value.slice(0, 30)}" into ${describeElement(el)}`,
+        timestamp: Date.now(),
+      });
+    } catch (err) {
+      console.error('[FlowKit] input capture failed', err);
+    }
     inputDebounce.delete(el);
   }, 600));
 }
@@ -185,33 +199,48 @@ function onInputCapture(e: Event) {
 // Select handler
 function onChangeCapture(e: Event) {
   if (!recording) return;
-  const el = e.target as HTMLSelectElement;
-  if (!el || el.tagName !== 'SELECT') return;
-  const selectors = getSelectors(el);
-  recordStep({
-    type: 'select',
-    selector: selectors[0],
-    selectorAlternatives: selectors.slice(1),
-    value: el.value,
-    description: `Select "${el.value}" in ${describeElement(el)}`,
-    timestamp: Date.now(),
-  });
+  try {
+    const el = e.target as HTMLSelectElement;
+    if (!el || el.tagName !== 'SELECT') return;
+    const selectors = getSelectors(el);
+    recordStep({
+      type: 'select',
+      selector: selectors[0],
+      selectorAlternatives: selectors.slice(1),
+      value: el.value,
+      description: `Select "${el.value}" in ${describeElement(el)}`,
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    console.error('[FlowKit] select capture failed', err);
+  }
 }
 
+// Listeners are attached to `window`, not `document`. Capture-phase events
+// travel window -> document -> html -> ... -> target, so a window-level
+// capture listener always runs before any document-level one — including
+// listeners the *page itself* (React/Vue apps, analytics scripts) may have
+// already attached to `document` before we start recording. Sites like
+// X/Instagram are heavy SPAs that commonly install their own document-level
+// click handling early on page load; if that handler calls
+// stopImmediatePropagation(), a document-level listener of ours (added
+// later, when the user clicks "Start Recording") would never run at all —
+// silently, with 0 steps and no error. window-level capture isn't
+// interceptable that way since nothing sits above it in the chain.
 function startRecording() {
   recording = true;
   steps = [];
   lastTimestamp = Date.now();
-  document.addEventListener('click', onClickCapture, { capture: true, passive: true });
-  document.addEventListener('input', onInputCapture, { capture: true, passive: true });
-  document.addEventListener('change', onChangeCapture, { capture: true, passive: true });
+  window.addEventListener('click', onClickCapture, { capture: true, passive: true });
+  window.addEventListener('input', onInputCapture, { capture: true, passive: true });
+  window.addEventListener('change', onChangeCapture, { capture: true, passive: true });
 }
 
 function stopRecording(): RecordedStep[] {
   recording = false;
-  document.removeEventListener('click', onClickCapture, { capture: true });
-  document.removeEventListener('input', onInputCapture, { capture: true });
-  document.removeEventListener('change', onChangeCapture, { capture: true });
+  window.removeEventListener('click', onClickCapture, { capture: true });
+  window.removeEventListener('input', onInputCapture, { capture: true });
+  window.removeEventListener('change', onChangeCapture, { capture: true });
   return [...steps];
 }
 
